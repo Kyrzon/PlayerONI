@@ -180,18 +180,15 @@ void MainWindow::seekStream(openni::VideoStream* pStream, openni::VideoFrameRef*
         // the new frameId might be different than expected (due to clipping to edges)
         frameId = pCurFrame->getFrameIndex();
 
-        //displayMessage("Current frame: %u/%u", frameId, numberOfFrames);
     }
     else if ((rc == openni::STATUS_NOT_IMPLEMENTED) || (rc == openni::STATUS_NOT_SUPPORTED) || (rc == openni::STATUS_BAD_PARAMETER) || (rc == openni::STATUS_NO_DEVICE))
     {
         return;
-        //displayError("Seeking is not supported");
         //QMessageBox::information(this, tr("Couldn't create depth stream"), OpenNI::getExtendedError());
     }
     else
     {
         return;
-        //displayError("Error seeking to frame:\n%s", openni::OpenNI::getExtendedError());
     }
 }
 
@@ -295,26 +292,37 @@ void MainWindow::on_action_openFile_triggered()
             return;
         }
 
-        while(1)
+        int curCountOfFrames = 0;
+        int numberOfFrames = g_pPlaybackControl->getNumberOfFrames(g_depthStream);
+        while(curCountOfFrames < numberOfFrames)
         {
+
+            openni::Status rc = g_pPlaybackControl->seek(g_colorStream, curCountOfFrames);
+            if (rc != openni::STATUS_OK)
+            {
+                return;
+            }
+            g_colorStream.readFrame(&g_colorFrame);
             uchar *data = (uchar *)(g_colorFrame.getData());
             int imageWidth = 640;
             int imageHeight = 480;
             QImage image(data, imageWidth, imageHeight, QImage::Format_RGB888);
             ui->label->setPixmap(QPixmap::fromImage(image).scaled(ui->label->width(), ui->label->height(), Qt::KeepAspectRatio));
-            //QVideoFrame fra(image);
-            //fra.
-            //pMediaPlayer->setMedia()
 
-
+            rc = g_pPlaybackControl->seek(g_depthStream, curCountOfFrames);
+            if (rc != openni::STATUS_OK)
+            {
+                return;
+            }
+            g_depthStream.readFrame(&g_depthFrame);
             data = (uchar *)(g_depthFrame.getData());
             image = QImage(data, imageWidth, imageHeight, QImage::Format_RGB16);
-            ui->label_2->setPixmap(QPixmap::fromImage(image).scaled(ui->label_2->width(), ui->label_2->height(), Qt::KeepAspectRatio));
+            ui->label_2->setPixmap(QPixmap::fromImage(image).scaled(ui->label_2->width(), ui->label->height(), Qt::KeepAspectRatio));
 
             setUpdatesEnabled(true);
             repaint();
             setUpdatesEnabled(false);
-            readFrame();
+            curCountOfFrames++;
         }
     }
     else // Standart player
