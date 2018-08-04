@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/res">
+        <file>Img/control_pause.png</file>
+        <file>Img/control_play.png</file>
+        <file>Img/control_stop.png</file>
+        <file>Img/folder_page_white.png</file>
+    </qresource>
+</RCC>
