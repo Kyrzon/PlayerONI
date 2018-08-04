@@ -12,11 +12,11 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
-#include <QtWidgets/QPushButton>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QWidget>
@@ -31,10 +31,10 @@ public:
     QAction *actionPause;
     QAction *actionStop;
     QWidget *centralWidget;
-    QPushButton *pushButton_openFile;
-    QLabel *label;
-    QPushButton *pushButton_play;
+    QWidget *widget;
+    QHBoxLayout *horizontalLayout;
     QLabel *label_2;
+    QLabel *label;
     QMenuBar *menuBar;
     QMenu *menu;
     QToolBar *mainToolBar;
@@ -67,18 +67,24 @@ public:
         actionStop->setIcon(icon3);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
-        pushButton_openFile = new QPushButton(centralWidget);
-        pushButton_openFile->setObjectName(QStringLiteral("pushButton_openFile"));
-        pushButton_openFile->setGeometry(QRect(0, 0, 81, 21));
-        label = new QLabel(centralWidget);
-        label->setObjectName(QStringLiteral("label"));
-        label->setGeometry(QRect(220, 30, 181, 171));
-        pushButton_play = new QPushButton(centralWidget);
-        pushButton_play->setObjectName(QStringLiteral("pushButton_play"));
-        pushButton_play->setGeometry(QRect(90, 0, 75, 23));
-        label_2 = new QLabel(centralWidget);
+        widget = new QWidget(centralWidget);
+        widget->setObjectName(QStringLiteral("widget"));
+        widget->setGeometry(QRect(10, 0, 381, 231));
+        horizontalLayout = new QHBoxLayout(widget);
+        horizontalLayout->setSpacing(6);
+        horizontalLayout->setContentsMargins(11, 11, 11, 11);
+        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
+        horizontalLayout->setContentsMargins(0, 0, 0, 0);
+        label_2 = new QLabel(widget);
         label_2->setObjectName(QStringLiteral("label_2"));
-        label_2->setGeometry(QRect(20, 40, 181, 161));
+
+        horizontalLayout->addWidget(label_2);
+
+        label = new QLabel(widget);
+        label->setObjectName(QStringLiteral("label"));
+
+        horizontalLayout->addWidget(label);
+
         MainWindow->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(MainWindow);
         menuBar->setObjectName(QStringLiteral("menuBar"));
@@ -121,10 +127,8 @@ public:
 #ifndef QT_NO_TOOLTIP
         actionStop->setToolTip(QApplication::translate("MainWindow", "Stop", nullptr));
 #endif // QT_NO_TOOLTIP
-        pushButton_openFile->setText(QApplication::translate("MainWindow", "Open File", nullptr));
-        label->setText(QApplication::translate("MainWindow", "TextLabel", nullptr));
-        pushButton_play->setText(QApplication::translate("MainWindow", "Play", nullptr));
         label_2->setText(QApplication::translate("MainWindow", "TextLabel", nullptr));
+        label->setText(QApplication::translate("MainWindow", "TextLabel", nullptr));
         menu->setTitle(QApplication::translate("MainWindow", "\321\204\320\260\320\271\320\273", nullptr));
     } // retranslateUi
 

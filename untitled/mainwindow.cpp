@@ -6,62 +6,54 @@
 
 using namespace openni;
 
-int MainWindow::openStream(openni::Device& device, openni::SensorType sensorType,
-               openni::VideoStream& stream, const openni::SensorInfo** ppSensorInfo, bool* pbIsStreamOn)
+openni::Status MainWindow::openStream(openni::Device& device, openni::SensorType sensorType,
+               openni::VideoStream& stream, const openni::SensorInfo** ppSensorInfo, bool* pbIsStreamOn,
+                                      openni::VideoFrameRef* frame)
 {
     *ppSensorInfo = device.getSensorInfo(sensorType);
     *pbIsStreamOn = false;
 
     if (*ppSensorInfo == NULL)
     {
-        return 0;
+        return openni::STATUS_ERROR;
     }
 
     openni::Status nRetVal = stream.create(device, sensorType);
     if (nRetVal != openni::STATUS_OK)
     {
-        return 0;
+        return nRetVal;
     }
 
     nRetVal = stream.start();
     if (nRetVal != openni::STATUS_OK)
     {
         stream.destroy();
-        return 0;
+        return nRetVal;
     }
+
+    stream.readFrame(frame);
 
     *pbIsStreamOn = true;
 
-    return 0;
+    return openni::STATUS_OK;
 }
 
-int MainWindow::openCommon(openni::Device& device)
+openni::Status MainWindow::openCommon(openni::Device& device)
 {
-    g_pPlaybackControl = g_device.getPlaybackControl();
+    g_pPlaybackControl = device.getPlaybackControl();
 
-    int ret;
+    openStream(device, openni::SENSOR_DEPTH, g_depthStream, &g_depthSensorInfo, &g_bIsDepthOn, &g_depthFrame);
 
-    ret = openStream(device, openni::SENSOR_DEPTH, g_depthStream, &g_depthSensorInfo, &g_bIsDepthOn);
-    if (ret != 0)
+    openStream(device, openni::SENSOR_COLOR, g_colorStream, &g_colorSensorInfo, &g_bIsColorOn, &g_colorFrame);
+
+    openStream(device, openni::SENSOR_IR, g_irStream, &g_irSensorInfo, &g_bIsIROn, &g_irFrame);
+
+    if (!(g_bIsDepthOn || g_bIsColorOn || g_bIsIROn))
     {
-        return ret;
+        return openni::STATUS_ERROR;
     }
 
-    ret = openStream(device, openni::SENSOR_COLOR, g_colorStream, &g_colorSensorInfo, &g_bIsColorOn);
-    if (ret != 0)
-    {
-        return ret;
-    }
-
-    ret = openStream(device, openni::SENSOR_IR, g_irStream, &g_irSensorInfo, &g_bIsIROn);
-    if (ret != 0)
-    {
-        return ret;
-    }
-
-    readFrame();
-
-    return 0;
+    return openni::STATUS_OK;
 }
 
 openni::Status MainWindow::openDevice(const char* uri)
@@ -79,9 +71,10 @@ openni::Status MainWindow::openDevice(const char* uri)
         return nRetVal;
     }
 
-    if (0 != openCommon(g_device))
+    nRetVal = openCommon(g_device);
+    if (nRetVal != openni::STATUS_OK)
     {
-        return openni::STATUS_ERROR;
+        return nRetVal;
     }
 
     return openni::STATUS_OK;
@@ -102,17 +95,17 @@ void MainWindow::closeDevice()
     openni::OpenNI::shutdown();
 }
 
-void MainWindow::readFrame()
+openni::Status MainWindow::readFrame()
 {
-    openni::Status rc = openni::STATUS_ERROR;
+    openni::Status nRetVal = openni::STATUS_ERROR;
 
     openni::VideoStream* streams[] = {&g_depthStream, &g_colorStream, &g_irStream};
 
     int changedIndex = -1;
-    while (rc != openni::STATUS_OK)
+    while (nRetVal != openni::STATUS_OK)
     {
-        rc = openni::OpenNI::waitForAnyStream(streams, 3, &changedIndex, 0);
-        if (rc == openni::STATUS_OK)
+        nRetVal = openni::OpenNI::waitForAnyStream(streams, 3, &changedIndex, 0);
+        if (nRetVal == openni::STATUS_OK)
         {
             switch (changedIndex)
             {
@@ -123,10 +116,12 @@ void MainWindow::readFrame()
             case 2:
                 g_irStream.readFrame(&g_irFrame); break;
             default:
-                printf("Error in wait\n");
+                return openni::STATUS_ERROR;
             }
         }
     }
+
+    return nRetVal;
 }
 
 openni::VideoStream* MainWindow::getSeekingStream(openni::VideoFrameRef*& pCurFrame)
@@ -234,241 +229,143 @@ void MainWindow::seekFrameAbs(int frameId)
     seekStream(pStream, pCurFrame, frameId);
 }
 
-void MainWindow::OldTry(QString fileName)
-{
-    Device glDevice;
-    openni::VideoStream depth_stream;
-    openni::VideoStream color_stream;
-    openni::Status rc;
-    openni::VideoFrameRef depth_frame_ref;
-    openni::VideoFrameRef color_frame_ref;
-    QVideoFrame *pFrame;
-
-    pFrame = new QVideoFrame();
-
-    rc = glDevice.open(fileName.toStdString().c_str());
-    if(rc != openni::STATUS_OK)
-    {
-        QMessageBox::information(this, tr("Error open file"), OpenNI::getExtendedError());
-    }
-
-    if (glDevice.getSensorInfo(SENSOR_DEPTH) != NULL)
-    {
-        rc = depth_stream.create(glDevice, SENSOR_DEPTH);
-        if (rc != STATUS_OK)
-        {
-            QMessageBox::information(this, tr("Couldn't create depth stream"), OpenNI::getExtendedError());
-        }
-    }
-
-    // set resolution
-    // depth mode
-    /*const openni::SensorInfo* sinfo = glDevice.getSensorInfo(openni::SENSOR_DEPTH);
-    const openni::Array< openni::VideoMode>& modesDepth = sinfo->getSupportedVideoModes();
-    rc = depth_stream.setVideoMode(modesDepth[0]);
-    if (openni::STATUS_OK != rc)
-    {
-        QMessageBox::information(this, tr("error: depth fromat not supprted..."), OpenNI::getExtendedError());
-    }
-
-    rc = depth_stream.start();
-    if (rc != STATUS_OK)
-    {
-        QMessageBox::information(this, tr("Couldn't start the depth stream"), OpenNI::getExtendedError());
-    }
-*/
-    rc = depth_stream.create (glDevice, openni::SENSOR_DEPTH);
-    if(rc != openni::STATUS_OK)
-    {
-        QMessageBox::information(this, tr("Error create stream"), OpenNI::getExtendedError());
-    }
-
-
-
-    rc = color_stream.create (glDevice, openni::SENSOR_COLOR);
-    if(rc != openni::STATUS_OK)
-    {
-        QMessageBox::information(this, tr("Error create stream"), OpenNI::getExtendedError());
-    }
-
-    /*openni::VideoMode depth_video_mode;
-    depth_video_mode.setFps(30);
-    depth_video_mode.setPixelFormat(openni::PIXEL_FORMAT_DEPTH_1_MM);
-    depth_video_mode.setResolution(640,480);
-    rc = depth_stream.setVideoMode(depth_video_mode);
-    if(rc == openni::STATUS_ERROR)
-    {
-        QMessageBox::information(this, tr("Error Set Video Mode"), OpenNI::getExtendedError());
-        std::cout << "Could not set video mode." << std::endl;
-    }*/
-
-    //device.setImageRegistrationMode (openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR);
-    depth_stream.start ();
-    color_stream.start ();
-
-
-    //depth_stream.readFrame (&depth_frame_ref);
-    //color_stream.readFrame (&color_frame_ref);
-
-    //depth_stream.stop();
-    //color_stream.stop();
-
-    int changedStreamDummy;
-    VideoStream* pStream = &depth_stream;
-    while (1)
-    {
-        rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy, 20000);//SAMPLE_READ_WAIT_TIMEOUT);
-        if (rc != STATUS_OK)
-        {
-            QMessageBox::information(this, tr("Frame ID"), "Error wait...");
-            //continue;
-        }
-
-        rc = depth_stream.readFrame(&depth_frame_ref);
-        if (rc != STATUS_OK)
-        {
-            //cout << "Read failed!" << endl << OpenNI::getExtendedError() << endl;
-            //continue;
-        }
-
-        //if (color_frame_ref.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_1_MM && color_frame_ref.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_100_UM)
-        {
-            //cout << "Unexpected frame format" << endl;
-            //continue;
-        }
-
-        uchar *data = (uchar *)depth_frame_ref.getData();
-
-            int imageWidth = 640;
-            int imageHeight = 480;
-            //int bytesPerPixel = 1; // 4 for RGBA, 3 for RGB
-            QImage image(data, imageWidth, imageHeight, QImage::Format_RGB888);
-            ui->label->setPixmap(QPixmap::fromImage(image).scaled(200,200));
-            setUpdatesEnabled(true);
-            repaint();
-            setUpdatesEnabled(false);
-            QMessageBox::information(this, tr("Frame ID"), QString::number(depth_frame_ref.getFrameIndex()));
-    }
-}
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
 
-
-    Status rc = OpenNI::initialize();
-    if (rc != STATUS_OK)
-    {
-        QMessageBox::information(this, tr("Error Init"), OpenNI::getExtendedError());
-    }
-
-
-
     ui->setupUi(this);
 
-    pMediaPlayer = new QMediaPlayer(this);
-    pVideoWidget = new QVideoWidget(this);
-    //pMediaPlayer->setVideoOutput(pVideoWidget);
-    //this->setCentralWidget(pVideoWidget);
-    pSlider = new QSlider(this);
-    pProgressBar = new QProgressBar(this);
+    if (ONIMode)
+    {
+        Status rc = OpenNI::initialize();
+        if (rc != STATUS_OK)
+        {
+            QMessageBox::information(this, tr("Error Init"), OpenNI::getExtendedError());
+        }
+    }
+    else // Standart player
+    {
+        pMediaPlayer = new QMediaPlayer(this);
+        pVideoWidget = new QVideoWidget(this);
+        pMediaPlayer->setVideoOutput(pVideoWidget);
+        this->setCentralWidget(pVideoWidget);
+        pSlider = new QSlider(this);
+        pProgressBar = new QProgressBar(this);
 
-    pSlider->setOrientation(Qt::Horizontal);
-    ui->statusBar->addPermanentWidget(pSlider);
-    ui->statusBar->addPermanentWidget(pProgressBar);
+        pSlider->setOrientation(Qt::Horizontal);
+        ui->statusBar->addPermanentWidget(pSlider);
+        ui->statusBar->addPermanentWidget(pProgressBar);
 
-    connect(pMediaPlayer, &QMediaPlayer::durationChanged, pSlider, &QSlider::setMaximum);
-    connect(pMediaPlayer, &QMediaPlayer::positionChanged, pSlider, &QSlider::setValue);
+        connect(pMediaPlayer, &QMediaPlayer::durationChanged, pSlider, &QSlider::setMaximum);
+        connect(pMediaPlayer, &QMediaPlayer::positionChanged, pSlider, &QSlider::setValue);
 
-    connect(pSlider, &QSlider::sliderMoved, pMediaPlayer, &QMediaPlayer::setPosition);
+        connect(pSlider, &QSlider::sliderMoved, pMediaPlayer, &QMediaPlayer::setPosition);
 
-    connect(pMediaPlayer, &QMediaPlayer::durationChanged, pProgressBar, &QProgressBar::setMaximum);
-    connect(pMediaPlayer, &QMediaPlayer::positionChanged, pProgressBar, &QProgressBar::setValue);
+        connect(pMediaPlayer, &QMediaPlayer::durationChanged, pProgressBar, &QProgressBar::setMaximum);
+        connect(pMediaPlayer, &QMediaPlayer::positionChanged, pProgressBar, &QProgressBar::setValue);
+    }
 
 }
 
 MainWindow::~MainWindow()
 {
-    OpenNI::shutdown();
+    if (ONIMode)
+    {
+        OpenNI::shutdown();
+    }
     delete ui;
 }
 
-void MainWindow::on_pushButton_openFile_clicked()
-{
-
-}
-
-
-void MainWindow::on_pushButton_play_clicked()
-{
-
-}
 
 void MainWindow::on_action_openFile_triggered()
 {
-    QString fileName = "F:\\a.oni";//QFileDialog::getOpenFileName(this, tr("Open File"), "C:\\", "ONI files (*.oni)");
-    if (fileName.isEmpty())
+    if(ONIMode)
     {
-        return;
-    }
-
-    openDevice(fileName.toStdString().c_str());
-    if(openDevice(fileName.toStdString().c_str()) == openni::STATUS_OK)
-    {
-        if (openCommon(g_device) == 0)
+        QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), "C:\\", "ONI files (*.oni)");
+        if (fileName.isEmpty())
         {
-            while(1)
-            {
-                uchar *data = (uchar *)(g_colorFrame.getData());
-                int imageWidth = 640;
-                int imageHeight = 480;
-                QImage image(data, imageWidth, imageHeight, QImage::Format_RGB888);
-                ui->label->setPixmap(QPixmap::fromImage(image).scaled(200,200));
-                QVideoFrame fra(image);
-                //fra.
-                //pMediaPlayer->setMedia()
-
-
-                data = (uchar *)(g_depthFrame.getData());
-                image = QImage(data, imageWidth, imageHeight, QImage::Format_RGB16);
-                ui->label_2->setPixmap(QPixmap::fromImage(image).scaled(200,200));
-
-                setUpdatesEnabled(true);
-                repaint();
-                setUpdatesEnabled(false);
-                readFrame();
-            }
+            return;
         }
-        else
+
+        openni::Status nRetVal = openDevice(fileName.toStdString().c_str());
+        if(nRetVal != openni::STATUS_OK)
         {
-            QMessageBox::information(this, tr("Error open Streams"), OpenNI::getExtendedError());
+            QMessageBox::information(this, tr("Error open Device"), OpenNI::getExtendedError());
+            return;
+        }
+
+        while(1)
+        {
+            uchar *data = (uchar *)(g_colorFrame.getData());
+            int imageWidth = 640;
+            int imageHeight = 480;
+            QImage image(data, imageWidth, imageHeight, QImage::Format_RGB888);
+            ui->label->setPixmap(QPixmap::fromImage(image).scaled(ui->label->width(), ui->label->height(), Qt::KeepAspectRatio));
+            //QVideoFrame fra(image);
+            //fra.
+            //pMediaPlayer->setMedia()
+
+
+            data = (uchar *)(g_depthFrame.getData());
+            image = QImage(data, imageWidth, imageHeight, QImage::Format_RGB16);
+            ui->label_2->setPixmap(QPixmap::fromImage(image).scaled(ui->label_2->width(), ui->label_2->height(), Qt::KeepAspectRatio));
+
+            setUpdatesEnabled(true);
+            repaint();
+            setUpdatesEnabled(false);
+            readFrame();
         }
     }
-    else
+    else // Standart player
     {
-        QMessageBox::information(this, tr("Error open Device"), OpenNI::getExtendedError());
+        QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), "C:\\", "Video files (*.*)");
+        if (fileName.isEmpty())
+        {
+            return;
+        }
+        on_actionStop_triggered();
+        pMediaPlayer->setMedia(QUrl(fileName));
+        on_actionPlay_triggered();
     }
-
-    //on_actionStop_triggered();
-    //pMediaPlayer->setMedia(QUrl(fileName));
-    //on_actionPlay_triggered();
 }
 
 void MainWindow::on_actionPlay_triggered()
 {
-    pMediaPlayer->play();
-    ui->statusBar->showMessage("Playing");
+    if(ONIMode)
+    {
+        //TODO
+    }
+    else
+    {
+        pMediaPlayer->play();
+        ui->statusBar->showMessage("Playing");
+    }
+
 }
 
 void MainWindow::on_actionPause_triggered()
 {
-    pMediaPlayer->pause();
-    ui->statusBar->showMessage("Pause");
+    if(ONIMode)
+    {
+        //TODO
+    }
+    else
+    {
+        pMediaPlayer->pause();
+        ui->statusBar->showMessage("Pause");
+    }
 }
 
 void MainWindow::on_actionStop_triggered()
 {
-    pMediaPlayer->stop();
-    ui->statusBar->showMessage("Stoping");
+    if(ONIMode)
+    {
+        //TODO
+    }
+    else
+    {
+        pMediaPlayer->stop();
+        ui->statusBar->showMessage("Stoping");
+    }
 }

@@ -11,8 +11,7 @@
 #include <QProgressBar>
 #include <QSlider>
 #include <iostream>
-#include "OpenNI.h"
-
+#include "OpenNI.h" 
 
 namespace Ui {
 class MainWindow;
@@ -27,11 +26,8 @@ public:
     ~MainWindow();
 
 private slots:
-    void on_pushButton_openFile_clicked();
 
     void on_action_openFile_triggered();
-
-    void on_pushButton_play_clicked();
 
     void on_actionPlay_triggered();
 
@@ -39,18 +35,17 @@ private slots:
 
     void on_actionStop_triggered();
 
-    void OldTry(QString fileName);
+    openni::Status openStream(openni::Device& device, openni::SensorType sensorType,
+                   openni::VideoStream& stream, const openni::SensorInfo** ppSensorInfo, bool* pbIsStreamOn,
+                              openni::VideoFrameRef* frame);
 
-    int openStream(openni::Device& device, openni::SensorType sensorType,
-                   openni::VideoStream& stream, const openni::SensorInfo** ppSensorInfo, bool* pbIsStreamOn);
-
-    int openCommon(openni::Device& device);
+    openni::Status openCommon(openni::Device& device);
 
     openni::Status openDevice(const char* uri);
 
     void closeDevice();
 
-    void readFrame();
+    openni::Status readFrame();
 
     openni::VideoStream* getSeekingStream(openni::VideoFrameRef*& pCurFrame);
 
@@ -62,6 +57,9 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+
+    bool ONIMode = true;
+
     QMediaPlayer* pMediaPlayer;
     QProgressBar* pProgressBar;
     QVideoWidget* pVideoWidget;
